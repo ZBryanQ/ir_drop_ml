@@ -1,0 +1,14 @@
+Image generation CNN?
+Take several dimensional input (three images at once), try to filter into the correct output
+Loss function is dependent on the similarity of the output to the IR drop map
+What is appropriate loss function?
+How does F1 score correlate with what we're doing? (is it just for the contest?)
+How to appropriately generate the output image (using CNN, what is an efficient architecture
+    needed to turn it into a image?) 
+
+Handling images being different sizes?
+rescaling with null values that can be postprocessed out?
+scale up the size per pixel?
+
+Netlist information?
+What is a graph neural network anyways?

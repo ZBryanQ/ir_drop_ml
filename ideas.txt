@@ -5,6 +5,7 @@ What is appropriate loss function?
 How does F1 score correlate with what we're doing? (is it just for the contest?)
 How to appropriately generate the output image (using CNN, what is an efficient architecture
     needed to turn it into a image?) 
+FCN? This essentially compresses data down, then back up instead of going to image classification
 
 Handling images being different sizes?
 rescaling with null values that can be postprocessed out?
@@ -12,3 +13,20 @@ scale up the size per pixel?
 
 Netlist information?
 What is a graph neural network anyways?
+
+Gradient boosting?
+
+
+Step 1: Data Pipeline
+- Since we are using some form of Pytorch, we need to take the 3 different types 
+  of image data and make sure the model can read it
+- Convert CSV to image format (recommended webp or png)
+- reflection pad all the csv in image formats using TorchVision padding 
+- for the netlist data, we need to find a way to convert the information within them into an image format as well (project the netlist information onto a 2D matrix)
+^ we need to find a tool to do this for us, not do it by hand (cross attention related reading? Only if we have an attention-based network)
+^ COMPLICATED
+
+Step 2: Select Model
+Recommended from Dan: EfficientVit, MobileNet
+Other options:
+Tips: Don't do any downsampling to get outpu same size as the input

@@ -23,10 +23,10 @@ Step 1: Data Pipeline
 - Convert CSV to image format (recommended webp or png)
 - reflection pad all the csv in image formats using TorchVision padding 
 - for the netlist data, we need to find a way to convert the information within them into an image format as well (project the netlist information onto a 2D matrix)
-^ we need to find a tool to do this for us, not do it by hand (cross attention related reading? Only if we have an attention-based network)
+^ we need to find a tool to do this for us, not do it by hand (we may need to do cross attention related reading? Only if we have an attention-based network)
 ^ COMPLICATED
 
 Step 2: Select Model
 Recommended from Dan: EfficientVit, MobileNet
 Other options:
-Tips: Don't do any downsampling to get outpu same size as the input
+Tips: Don't do any downsampling to get output same size as the input

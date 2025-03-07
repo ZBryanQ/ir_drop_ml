@@ -32,23 +32,23 @@ pipeline= transforms.Compose([
     transforms.ToTensor(),  # Convert image to tensor
     transforms.Lambda(lambda x: x[:3]),
     PadToSize(target_size),  # Pad the image to the target size
-    # transforms.ToPILImage(), 
+    transforms.ToPILImage(), 
 ])
 
 # Turning all the images into a custom Dataset object
 image_dataset = torchvision.datasets.ImageFolder(root = '/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files', transform = pipeline)
 #print(image_dataset)
 
-image = Image.open('/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files/current/current_map00_current.png')
+image = Image.open('/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files/pdn_density/testcase5_pdn_density.png')
 # temp = transforms.ToTensor()
 # print(temp(image))
-transformed_image = pipeline(image).size()
-print(transformed_image)
-#transformed_image.show()
+transformed_image = pipeline(image)
+#print(transformed_image)
+transformed_image.show()
 #torchvision.transforms.Pad(padding, fill=0, padding_mode='constant')
 
 network = MobileNetV3_Small(2)
 # print(network)
 
 # random = torch.rand(2,3,224,224)
-network(transformed_image)
+#network(transformed_image)

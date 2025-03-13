@@ -41,12 +41,6 @@ def csv2png(file_path, output_dir='/home/bqtx/Documents/VLSI/ir_drop_ml/training
     image = arr_2D.to_numpy()
     plt.imsave(set_storage_path_png(file_path,output_dir), image)
 
-def csvs2pngs():
-    csvs = get_og_csv()
-    for csv in csvs:
-        print(csv)
-        csv2png(csv)
-
 #this function doesnt totally work with the real circuit testcases btw
 def sort_png_files(dir_path = '/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files'):
     list = os.listdir(dir_path)
@@ -56,20 +50,24 @@ def sort_png_files(dir_path = '/home/bqtx/Documents/VLSI/ir_drop_ml/training_dat
             continue
             print('continue')
         else:
-            if re.search(r"eff_dist\.png", file):
+            if "eff_dist" in f:
                 shutil.move(file, os.path.join(dir_path,"eff_dist",f))
-            elif re.search(r"ir_drop\.png", file):
+            elif "ir_drop" in f:
                 shutil.move(file, os.path.join(dir_path,"ir_drop",f))
-            elif re.search(r"pdn_density\.png", file):
+            elif "pdn_density" in f:
                 shutil.move(file, os.path.join(dir_path,"pdn_density",f))
             else:
                 shutil.move(file, os.path.join(dir_path,"current",f))
 
+def csvs2pngs():
+    csvs = get_og_csv()
+    for csv in csvs:
+        print(csv)
+        csv2png(csv)
 
 def main():
-    csvs2pngs
+    csvs2pngs()
+    sort_png_files()
 
 if __name__ == '__main__':
     main()
-
-#sort_png_files()

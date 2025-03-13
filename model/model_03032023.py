@@ -3,7 +3,7 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 import pandas as pd
-from mobilenetv3 import MobileNetV3_Small
+from vit import ViT as vit 
 from PIL import Image
 
 # NOTE: load image first, then transform, instead of transforming all possible images at once?
@@ -39,16 +39,25 @@ pipeline= transforms.Compose([
 image_dataset = torchvision.datasets.ImageFolder(root = '/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files', transform = pipeline)
 #print(image_dataset)
 
-image = Image.open('/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files/pdn_density/testcase5_pdn_density.png')
+#image = Image.open('/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files/pdn_density/testcase5_pdn_density.png')
 # temp = transforms.ToTensor()
 # print(temp(image))
-transformed_image = pipeline(image)
+#transformed_images = pipeline(image_dataset)
 #print(transformed_image)
-transformed_image.show()
+#transformed_image.show()
 #torchvision.transforms.Pad(padding, fill=0, padding_mode='constant')
 
-network = MobileNetV3_Small(2)
+#network = MobileNetV3_Small(2)
 # print(network)
 
 # random = torch.rand(2,3,224,224)
 #network(transformed_image)
+
+model = vit(image_size = (930,930), patch_size = (15,15), num_classes = 2, dim = 3, depth = 1, heads = 4, mlp_dim = 10) 
+counter = 0
+for image in image_dataset:
+    print(image)
+    model(image)
+    counter+=1
+    if counter > 1:
+        break

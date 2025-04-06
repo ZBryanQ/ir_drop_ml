@@ -76,21 +76,26 @@ image_dataset = CustomDataset(root_dir = '/home/bqtx/Documents/VLSI/ir_drop_ml/t
 #'''
 model = vit(image_size = (930,930), patch_size = (15,15), num_classes = 2, dim = 3, depth = 1, heads = 4, mlp_dim = 10) 
 
-# random_image = torch.randn(3, 930, 930)
+random_image = torch.randn(3, 3, 930, 930)
 
-# model(random_image)
+model(random_image)
 
 counter = 0
 stacked_img_list = list()
-for i, (image, label, path) in enumerate(image_dataset):
-    print(i)
-    #print(image.size())
-    print(path)
-    stacked_img_list.append(image)
-    counter+=1
-    if counter > 3:
-        stacked_img = torch.stack(stacked_img_list)
-        print(stacked_img.shape)
-        model(stacked_img)
-        break
+dict_of_lists = {}
+# for i, (image, label, path) in enumerate(image_dataset):
+#     print(i)
+#     #print(image.size())
+#     print(path)
+#     print(label)
+    # if label not in dict_of_lists.keys:
+    #     dict_of_lists[label] = list()
+    # dict_of_lists[label].append(image)
+    # stacked_img_list.append(image)
+    # counter+=1
+    # if counter > 3:
+    #     stacked_img = torch.stack(stacked_img_list)
+    #     print(stacked_img.shape)
+    #     model(stacked_img)
+    #     break
 #'''

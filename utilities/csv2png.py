@@ -5,6 +5,7 @@ import numpy as np
 import re
 import os
 import shutil
+from tiling_csv import tile_csv
 
 def get_og_csv(fake_data_dir="/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/fake-circuit-data_20230623", real_data_dir="/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/real-circuit-data_20230615"):
     #path to fake data directory; eg fake_data_dir = "./fake-circuit-data_20230623"
@@ -26,20 +27,16 @@ def set_storage_path_png(file_path, output_dir):
     if "testcase" not in file_path:
         output_path = re.split(r'\/',file_path)[-1]
         output_path = re.split(r".csv$", output_path)[0]
+        output_path = re.sub("current_map", "", output_path)
         output_path = output_path + ".png"
     else:
-        testcase_num = re.findall(r"testcase\d+", file_path).pop()
+        testcase_num = int(re.split("testcase",re.findall(r"testcase\d+", file_path).pop())[-1])
         output_path = re.split(r'\/',file_path)[-1]
         output_path = re.split(r".csv$", output_path)[0]
-        output_path = testcase_num + "_" + output_path + ".png"
+        output_path = str(testcase_num+100) + "_" + output_path + ".png"
     output_path = os.path.join(output_dir, output_path)    
     return output_path
 
-def csv2png(file_path, output_dir='/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files/'):
-    #read_csv returns a two-dimensional DataFrame or TextFileReader with labeled axes
-    arr_2D = pd.read_csv(file_path)
-    image = arr_2D.to_numpy()
-    plt.imsave(set_storage_path_png(file_path,output_dir), image)
 
 #this function doesnt totally work with the real circuit testcases btw
 def sort_png_files(dir_path = '/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files'):
@@ -50,19 +47,29 @@ def sort_png_files(dir_path = '/home/bqtx/Documents/VLSI/ir_drop_ml/training_dat
             continue
             print('continue')
         else:
-            if "eff_dist" in f:
-                shutil.move(file, os.path.join(dir_path,"eff_dist",f))
-            elif "ir_drop" in f:
+            if "ir_drop" in f:
                 shutil.move(file, os.path.join(dir_path,"ir_drop",f))
-            elif "pdn_density" in f:
-                shutil.move(file, os.path.join(dir_path,"pdn_density",f))
             else:
-                shutil.move(file, os.path.join(dir_path,"current",f))
+                shutil.move(file, os.path.join(dir_path,"input",f))
+
+def csv2png(file_path, output_dir='/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/png-files/'):
+    #read_csv returns a two-dimensional DataFrame or TextFileReader with labeled axes
+    arr_2D = pd.read_csv(file_path)
+    image = arr_2D.to_numpy()
+    plt.imsave(set_storage_path_png(file_path,output_dir), image)
 
 def csvs2pngs():
     csvs = get_og_csv()
     for csv in csvs:
-        print(csv)
+        with open(csv) as f:
+            first_line = f.readline()
+            if len(first_line.split(",")) > 930/2:
+                csv2png(csv)
+            else:
+                print(csv)
+                output_file = os.path.split(csv)[-1]
+                tile_csv(csv, output_file, 2, 2, out_path = '/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/tiled_csvs')
+    for file in os.listdir('/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/tiled_csvs'):
         csv2png(csv)
 
 def main():

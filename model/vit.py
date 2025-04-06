@@ -125,10 +125,26 @@ class ViT(nn.Module):
 
         x = self.to_latent(x)
         return self.mlp_head(x)
-    
-class ViT_Encoder_Decoder(nn.Module):
-    def __init__(self, *, image_size, patch_size, dim, depth, heads, mlp_dim, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0.):
-        super().__init__()
+
+# Decoder Block: Used to upsample and convert features to an image.
+class DecoderBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
+        super(DecoderBlock, self).__init__()
+        self.deconv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)
+        self.relu = nn.ReLU()
+        self.bn = nn.BatchNorm2d(out_channels)
+        
+    def forward(self, x):
+        x = self.deconv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        return x
+
+# Vision Transformer Decoder
+class ViTDecoder(nn.Module):
+    def __init__(self, image_size, patch_size, dim, depth, heads, mlp_dim, channels=3, dim_head = 64, dropout=0., emb_dropout=0., out_channels = 3):
+        super(ViTDecoder, self).__init__()
+        
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
 
@@ -136,10 +152,9 @@ class ViT_Encoder_Decoder(nn.Module):
 
         num_patches = (image_height // patch_height) * (image_width // patch_width)
         patch_dim = channels * patch_height * patch_width
-        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.to_patch_embedding = nn.Sequential(
-            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
             nn.LayerNorm(patch_dim),
             nn.Linear(patch_dim, dim),
             nn.LayerNorm(dim),
@@ -151,32 +166,33 @@ class ViT_Encoder_Decoder(nn.Module):
 
         self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
 
-        self.pool = pool
-        self.to_latent = nn.Identity()
-
+        # Decoder network to reconstruct image
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(dim, 256, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 3, 4, stride=2, padding=1),  # 3 for RGB channels
-            nn.Sigmoid()
+            DecoderBlock(dim, 128, kernel_size=17, stride=2, padding=1), # 15x15
+            DecoderBlock(128, 64, kernel_size=5, stride=4, padding=1), # 59x59
+            DecoderBlock(64, 32, kernel_size=5, stride=4, padding=2), # 233x233
+            DecoderBlock(32, 16, kernel_size=3, stride=2, padding=1), # 465x465
+            nn.ConvTranspose2d(16, out_channels, kernel_size=4, stride=2, padding=1)  # Final layer to match the original image size 930x930
         )
-
+    
     def forward(self, img):
+        # Step 1: Patch embedding and adding positional encoding
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
-        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
+        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding[:, :(n + 1)]
         x = self.dropout(x)
 
+        # Step 2: Pass through the transformer
         x = self.transformer(x)
 
-        x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
+        # Step 3: Decoder: Use transformer output to reconstruct image
+        x = rearrange(x, 'b n d -> b d n')  # Prepare output for decoding
+        x = x.mean(dim=1)  # Optionally, pool over sequence (depending on your use case)
 
-        x = self.to_latent(x)
-        return self.decoder(x)
+        x = rearrange(x, 'b d -> b d 1 1')  # Reshape for the decoder
+        x = self.decoder(x)  # Use decoder to reconstruct image
+
+        return x

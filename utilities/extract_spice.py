@@ -125,39 +125,49 @@ def get_csv_row_count(file_path):
         row_count = sum(1 for row in reader)
     return row_count
 
+# return set of resistors that are vias
 def get_vias(resistors):
     via_set = set()
     for res in rset:
         if (res.node1.x == res.node2.x) and (res.node2.y == res.node2.y) and (res.node1.layer != res.node2.layer):
             via_set.add(res)
     return via_set  # set of all resistors with same xy value but diff layers
+    
 
 def visualize_vias():
     # NOTE: create a different graph for each pair of layers a via bridges ex) m1 to m2, m2 to m3, etc.
-    via_set = get_vias(rset)
-    x_coords = []
-    y_coords = []
-    for via in via_set:
-        x_coords.append(via.node1.x)
-        y_coords.append(via.node1.y)
-    
-    # Create the plot
-    plt.figure()
-    plt.scatter(x_coords, y_coords, color='blue')  # You can change color or marker style
 
-    # Optional: Add labels, grid, etc.
-    plt.title("Node Plot")
-    plt.xlabel("X coordinate")
-    plt.ylabel("Y coordinate")
-    plt.grid(True)
-    
+    via_set = get_vias(rset)
+    layer_set = set()   # set of all layers found in via_set
+
+    for via in via_set:
+        layer_tuple = (via.node1.layer, via.node2.layer) # assuming direction matters instead of just using node1.layer
+        if layer_tuple not in layer_set:
+            layer_set.add(layer_tuple)
+
+    for layer_tuple in layer_set: # loop through layer_set twice, not efficient? Same name for layer_tuple?
+        x_coords = []
+        y_coords = []
+        for via in via_set:
+            if layer_tuple[0] == via.node1.layer and layer_tuple[1] == via.node2.layer:
+                x_coords.append(via.node1.x)
+                y_coords.append(via.node1.y)
+
+        plt.figure()
+        plt.scatter(x_coords, y_coords, color='blue')
+
+        plt.title(f"Via from {layer_tuple[0]} to {layer_tuple[1]}")
+        plt.xlabel("X coordinate")
+        plt.ylabel("Y coordinate")
+        plt.grid(True)
+        
     plt.show()
     
     return
 
     
 # run
-spice_netlist_file = "training_data/netlists/current_map00.sp"
+spice_netlist_file = "training_data/netlists/current_map01.sp"
 
 file2objects(spice_netlist_file)
 

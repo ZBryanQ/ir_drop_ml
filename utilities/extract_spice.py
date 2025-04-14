@@ -5,9 +5,18 @@
 import re
 import pandas as pd
 import numpy as np
-from collections import defaultdict
+import matplotlib.pyplot as plt
+from pathlib import Path
+import csv
 
-""" Example matches:
+# Globals
+nset = set()
+rset = set()
+vset = set()
+iset = set()
+
+
+""" Example spice netlist:
 R645 n1_m1_108000_17920 n1_m1_102600_179200 0.14
 R646 n1_m1_113400_179200 n1_M3_113400_179200 4.23
 I7 n1_m1_113400_179200 0 4.24901e-08
@@ -24,8 +33,8 @@ class SpiceNode:
     def __init__(self, net, layer, x, y):
         self.net = net
         self.layer = layer
-        self.x = x/2000 # SPICE value / 2000 is location in um
-        self.y = y/2000
+        self.x = int(x)/2000 # SPICE value / 2000 is location in um
+        self.y = int(y)/2000
     def __eq__(self, other) : # Same node if same net, layer, xy osition
         return (self.net, self.layer, self.x, self.y) == (other.net, other.layer, other.x, other.y)
     def __hash__(self):
@@ -81,11 +90,6 @@ Edge for GNN:
 -resistance
 """
 
-nset = set()
-rset = set()
-vset = set()
-iset = set()
-
 def file2objects(file_path):
     with open(file_path) as f:
         for line in f:
@@ -115,10 +119,49 @@ def file2objects(file_path):
                 isource = SpiceIsource(i_match.group(1), node ,i_match.group(4))
                 iset.add(isource)
 
+def get_csv_row_count(file_path):
+    with open(file_path, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        row_count = sum(1 for row in reader)
+    return row_count
+
+def get_vias(resistors):
+    via_set = set()
+    for res in rset:
+        if (res.node1.x == res.node2.x) and (res.node2.y == res.node2.y) and (res.node1.layer != res.node2.layer):
+            via_set.add(res)
+    return via_set  # set of all resistors with same xy value but diff layers
+
+def visualize_vias():
+    # NOTE: create a different graph for each pair of layers a via bridges ex) m1 to m2, m2 to m3, etc.
+    via_set = get_vias(rset)
+    x_coords = []
+    y_coords = []
+    for via in via_set:
+        x_coords.append(via.node1.x)
+        y_coords.append(via.node1.y)
+    
+    # Create the plot
+    plt.figure()
+    plt.scatter(x_coords, y_coords, color='blue')  # You can change color or marker style
+
+    # Optional: Add labels, grid, etc.
+    plt.title("Node Plot")
+    plt.xlabel("X coordinate")
+    plt.ylabel("Y coordinate")
+    plt.grid(True)
+    
+    plt.show()
+    
+    return
+
     
 # run
-spice_netlist_file = "training_data/fake-circuit-data_20230623/fake-circuit-data/current_map00.sp"
+spice_netlist_file = "training_data/netlists/current_map00.sp"
+
 file2objects(spice_netlist_file)
+
+visualize_vias()
 
 # with open("./out/nodes.txt", "w") as file: 
 #     [file.write(f"{node.net} {node.layer} {node.x} {node.y}\n") for node in nset]

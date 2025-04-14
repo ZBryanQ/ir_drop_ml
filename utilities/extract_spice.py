@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import csv
+import os
 
 # Globals
 nset = set()
@@ -154,12 +155,17 @@ def visualize_vias():
                 y_coords.append(via.node1.y)
 
         plt.figure()
-        plt.scatter(x_coords, y_coords, color='blue')
+        plt.scatter(x_coords, y_coords, marker='x', s=10, color='blue')
 
         plt.title(f"Via from {layer_tuple[0]} to {layer_tuple[1]}")
         plt.xlabel("X coordinate")
         plt.ylabel("Y coordinate")
         plt.grid(True)
+
+        # Save plot(s) to folder
+        filename = f"{Path(spice_netlist_file).stem}_{layer_tuple[0]}_{layer_tuple[1]}"
+        plt.savefig(f"./temp/{filename}.png", dpi=300)  # save to file
+
         
     plt.show()
     
@@ -167,7 +173,7 @@ def visualize_vias():
 
     
 # run
-spice_netlist_file = "training_data/netlists/current_map01.sp"
+spice_netlist_file = "training_data/netlists/current_map00.sp"
 
 file2objects(spice_netlist_file)
 

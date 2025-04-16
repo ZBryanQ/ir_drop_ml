@@ -2,27 +2,21 @@
 # TODO: either convert to CSV or apply GNN to data
 # CSV strange as resistors could cross um boundaries and there are multiple layers
 
+import math
+import os
 import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import csv
-import os
+import seaborn as sns
 
 # Globals
 nset = set()
 rset = set()
 vset = set()
 iset = set()
-
-
-""" Example spice netlist:
-R645 n1_m1_108000_17920 n1_m1_102600_179200 0.14
-R646 n1_m1_113400_179200 n1_M3_113400_179200 4.23
-I7 n1_m1_113400_179200 0 4.24901e-08
-V0 n1_m7_81000_106230 0 1.1
-"""
 
 # regex patterns
 node_pattern = re.compile(r"(.*)_(.*)_(.*)_(.*)")  # sloppy, but shuld match net, layer, x, y if input is formatted correctly
@@ -133,11 +127,26 @@ def get_vias(resistors):
         if (res.node1.x == res.node2.x) and (res.node2.y == res.node2.y) and (res.node1.layer != res.node2.layer):
             via_set.add(res)
     return via_set  # set of all resistors with same xy value but diff layers
+
+def find_csv_size(file_path):
+    csv_dir = "./training_data/csv-files/input_csvs"
+    match = re.search(r'\d+', file_path) # find first number
+    number_str = match.group()
+    for filename in os.listdir(csv_dir):
+        leading_digits_match = re.match(r'^(\d+)', filename)
+        # Check if it's a CSV and contains the number
+        if filename.endswith('.csv') and leading_digits_match.group(1) == number_str:
+            print(f"Found matching file: {filename}")
+            filepath = os.path.join(csv_dir, filename)
+
+            # Read CSV with no headers
+            df = pd.read_csv(filepath, header=None)
+            num_rows = df.shape[0]
+            return num_rows
     
-
-def visualize_vias():
+def visualize_vias(file_path):
     # NOTE: create a different graph for each pair of layers a via bridges ex) m1 to m2, m2 to m3, etc.
-
+    file2objects(file_path)
     via_set = get_vias(rset)
     layer_set = set()   # set of all layers found in via_set
 
@@ -163,7 +172,7 @@ def visualize_vias():
         plt.grid(True)
 
         # Save plot(s) to folder
-        filename = f"{Path(spice_netlist_file).stem}_{layer_tuple[0]}_{layer_tuple[1]}"
+        filename = f"{Path(file_path).stem}_{layer_tuple[0]}_{layer_tuple[1]}"
         plt.savefig(f"./temp/{filename}.png", dpi=300)  # save to file
 
         
@@ -171,19 +180,60 @@ def visualize_vias():
     
     return
 
+def via_to_csv(file_path):
+    size = find_csv_size(file_path)
+    # with open('debug.txt', 'a') as file:
+    #     file.write(f"CSV size: {size}\n")
+    print(f"CSV size: {size}")
+
+    file2objects(file_path)
+    via_set = get_vias(rset)
+    layer_set = set()   # set of all layers found in via_set
+
+    for via in via_set: # finds n layers defined by layer_tuple
+        layer_tuple = (via.node1.layer, via.node2.layer) # assuming direction matters instead of just using node1.layer
+        if layer_tuple not in layer_set:
+            layer_set.add(layer_tuple)
+
+    # need n csvs, create n 2D lists of resistances per um^2
+
+    for layer_tuple in layer_set: # loop through layer_set twice, not efficient? Same name for layer_tuple?
+        resistance_matrix = [[0 for x in range(size+1)] for y in range(size+1)]
+        for via in via_set:
+            if layer_tuple[0] == via.node1.layer and layer_tuple[1] == via.node2.layer:
+                # with open('debug.txt', 'a') as file:
+                #     file.write(f"Layer {layer_tuple[0]} to {layer_tuple[1]} Node at: ({via.node1.x},{via.node1.y}), R={via.resistance} Size: {size}\n")
+                resistance_matrix[math.floor(via.node1.y)][math.floor(via.node1.x)] += float(via.resistance)
+        with open(f'{csv_output_dir}/{Path(file_path).stem}_{layer_tuple[0]}_{layer_tuple[1]}.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerows(resistance_matrix)
+    return
+
+def clear_globals():
+    global nset,rset,vset,iset
+    nset = set()
+    rset = set()
+    vset = set()
+    iset = set()
     
 # run
-spice_netlist_file = "training_data/netlists/current_map00.sp"
+csv_output_dir = "./via_csv_files"
+# visualize_vias("training_data/netlists/current_map00.sp")
+for i in range(100):
+    clear_globals()
+    s = str(i).zfill(2)
+    spice_netlist_file = f"training_data/netlists/current_map{s}.sp"
+    # with open('debug.txt', 'a') as file:
+    #     file.write(f"Processing {spice_netlist_file}...\n")
+    # visualize_vias(spice_netlist_file)
+    via_to_csv(spice_netlist_file)
 
-file2objects(spice_netlist_file)
-
-visualize_vias()
-
-# with open("./out/nodes.txt", "w") as file: 
+####################### write objects to txt ######################
+# with open("./temp/nodes.txt", "w") as file: 
 #     [file.write(f"{node.net} {node.layer} {node.x} {node.y}\n") for node in nset]
-# with open("./out/resistors.txt", "w") as file: 
+# with open("./temp/resistors.txt", "w") as file: 
 #     [file.write(f"{element.name} ({element.node1.net},{element.node1.layer},{element.node1.x},{element.node1.y}) ({element.node2.net},{element.node2.layer},{element.node2.x},{element.node2.y}) {element.resistance}\n") for element in rset]
-# with open("./out/voltage_sources.txt", "w") as file: 
+# with open("./temp/voltage_sources.txt", "w") as file: 
 #     [file.write(f"{element.name} ({element.node.net},{element.node.layer},{element.node.x},{element.node.y}) {element.voltage}\n") for element in vset]
-# with open("./out/current_sources.txt", "w") as file: 
+# with open("./temp/current_sources.txt", "w") as file: 
 #     [file.write(f"{element.name} ({element.node.net},{element.node.layer},{element.node.x},{element.node.y}) {element.current}\n") for element in iset]

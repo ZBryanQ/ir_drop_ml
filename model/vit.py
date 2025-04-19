@@ -312,3 +312,136 @@ class ViTDecoder_v2(nn.Module):
         a = self.decoder(a)  # Use decoder to reconstruct image
 
         return a
+    
+class ViTDecoder_v3(nn.Module):
+    def __init__(self, image_size, patch_size, dim, depth, heads, mlp_dim, channels=3, dim_head = 64, dropout=0., emb_dropout=0., out_channels = 3):
+        super(ViTDecoder_v3, self).__init__()
+        
+        image_height, image_width = pair(image_size)
+        patch_height, patch_width = pair(patch_size)
+
+        assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Image dimensions must be divisible by the patch size.'
+
+        num_patches = (image_height // patch_height) * (image_width // patch_width)
+        patch_dim = channels * patch_height * patch_width
+
+        self.to_patch_embedding_X = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
+            nn.LayerNorm(patch_dim),
+            nn.Linear(patch_dim, dim),
+            nn.LayerNorm(dim),
+        )
+        self.pos_embedding_X = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token_X = nn.Parameter(torch.randn(1, 1, dim))
+        self.dropout_X = nn.Dropout(emb_dropout)
+        self.transformer_X = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+
+        self.to_patch_embedding_Y = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
+            nn.LayerNorm(patch_dim),
+            nn.Linear(patch_dim, dim),
+            nn.LayerNorm(dim),
+        )
+        self.pos_embedding_Y = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token_Y = nn.Parameter(torch.randn(1, 1, dim))
+        self.dropout_Y = nn.Dropout(emb_dropout)
+        self.transformer_Y = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+
+        self.to_patch_embedding_Z = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
+            nn.LayerNorm(patch_dim),
+            nn.Linear(patch_dim, dim),
+            nn.LayerNorm(dim),
+        )
+        self.pos_embedding_Z = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token_Z = nn.Parameter(torch.randn(1, 1, dim))
+        self.dropout_Z = nn.Dropout(emb_dropout)
+        self.transformer_Z = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+
+        self.to_patch_embedding_Q = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
+            nn.LayerNorm(patch_dim*4),
+            nn.Linear(patch_dim*4, dim),
+            nn.LayerNorm(dim),
+        )
+        self.pos_embedding_Q = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token_Q = nn.Parameter(torch.randn(1, 1, dim))
+        self.dropout_Q = nn.Dropout(emb_dropout)
+        self.transformer_Q = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+
+        self.weights = nn.Parameter(torch.tensor([1.0, 1.0, 1.0, 1.0]))
+
+        # Decoder network to reconstruct image
+        self.decoder = nn.Sequential(
+            DecoderBlock(dim, 128, kernel_size=4, stride=2, padding=5), # 116x116
+            DecoderBlock(128, 64, kernel_size=4, stride=2, padding=1), # 232x232
+            DecoderBlock(64, 32, kernel_size=4, stride=2, padding=1), # 464x464
+            # DecoderBlock(32, 16, kernel_size=4, stride=2, padding=4), # 928x928
+            nn.ConvTranspose2d(32, out_channels, kernel_size=4, stride=2),  # Final layer to match the original image size 930x930
+            nn.Sigmoid()
+        )
+    
+    def forward(self, imgs, names):
+        # Step 1: Patch embedding and adding positional encoding
+        img1 = imgs[0]
+        img2 = imgs[1]
+        img3 = imgs[2]
+
+        counter = 0
+        for name in names:
+            if "current.png" in name:
+                img1 = imgs[counter]
+            elif "eff_dist" in name:
+                img2 = imgs[counter]
+            elif "pdn_density" in name:
+                img3 = imgs[counter]
+            counter += 1
+
+        x = self.to_patch_embedding_X(img1)
+        b, n, _ = x.shape
+        cls_tokens = repeat(self.cls_token_X, '1 1 d -> b 1 d', b=b)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x += self.pos_embedding_X[:, :(n + 1)]
+        x = self.dropout_X(x)
+
+        y = self.to_patch_embedding_Y(img2)
+        b, n, _ = y.shape
+        cls_tokens = repeat(self.cls_token_Y, '1 1 d -> b 1 d', b=b)
+        y = torch.cat((cls_tokens, y), dim=1)
+        y += self.pos_embedding_Y[:, :(n + 1)]
+        y = self.dropout_Y(y)
+
+        z = self.to_patch_embedding_Z(img3)
+        b, n, _ = z.shape
+        cls_tokens = repeat(self.cls_token_Z, '1 1 d -> b 1 d', b=b)
+        z = torch.cat((cls_tokens, z), dim=1)
+        z += self.pos_embedding_Z[:, :(n + 1)]
+        z = self.dropout_Z(x)
+
+        q = self.to_patch_embedding_Z(img3)
+        b, n, _ = q.shape
+        cls_tokens = repeat(self.cls_token_Q, '1 1 d -> b 1 d', b=b)
+        q = torch.cat((cls_tokens, q), dim=1)
+        q += self.pos_embedding_Q[:, :(n + 1)]
+        q = self.dropout_Q(x)
+
+        # Step 2: Pass through the transformer
+        x = self.transformer_X(x)
+        y = self.transformer_Y(y)
+        z = self.transformer_Z(z)
+        q = self.transformer_Q(q)
+
+        # Step 3: Decoder: Use transformer output to reconstruct image
+        patch_tokens_X = x[:, 1:, :]  # Remove CLS token → [B, 196, 768]
+        patch_tokens_Y = y[:, 1:, :]
+        patch_tokens_Z = z[:, 1:, :]
+        patch_tokens_Q = q[:, 1:, :]
+
+
+        w = nn.functional.softmax(self.weights, dim=0)
+        patch_tokens = w[0]*patch_tokens_X + w[1]*patch_tokens_Y  + w[2]*patch_tokens_Z + w[3]*patch_tokens_Q
+
+        a = patch_tokens.permute(0, 2, 1).reshape(-1, 768, 62, 62)  # reshape to image-like
+        a = self.decoder(a)  # Use decoder to reconstruct image
+
+        return a

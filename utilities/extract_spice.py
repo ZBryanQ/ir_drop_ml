@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import csv
-import seaborn as sns
+# import seaborn as sns
 
 # Globals
 nset = set()
@@ -129,7 +129,7 @@ def get_vias(resistors):
     return via_set  # set of all resistors with same xy value but diff layers
 
 def find_csv_size(file_path):
-    csv_dir = "./training_data/csv-files/input_csvs"
+    csv_dir = "/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/csv-files/input_csvs"
     match = re.search(r'\d+', file_path) # find first number
     number_str = match.group()
     for filename in os.listdir(csv_dir):
@@ -217,16 +217,16 @@ def clear_globals():
     iset = set()
     
 # run
-csv_output_dir = "./via_csv_files"
+csv_output_dir = "/home/bqtx/Documents/VLSI/ir_drop_ml/via_csv_files"
 # visualize_vias("training_data/netlists/current_map00.sp")
-for i in range(100):
+for spice_netlist_file in os.listdir("/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/netlists"):
     clear_globals()
-    s = str(i).zfill(2)
-    spice_netlist_file = f"training_data/netlists/current_map{s}.sp"
+    # s = str(i).zfill(2)
+    # spice_netlist_file = f"EvaluationData/netlists/{s}_netlist.sp"
     # with open('debug.txt', 'a') as file:
     #     file.write(f"Processing {spice_netlist_file}...\n")
     # visualize_vias(spice_netlist_file)
-    via_to_csv(spice_netlist_file)
+    via_to_csv(os.path.join("/home/bqtx/Documents/VLSI/ir_drop_ml/training_data/netlists",spice_netlist_file))
 
 ####################### write objects to txt ######################
 # with open("./temp/nodes.txt", "w") as file: 
